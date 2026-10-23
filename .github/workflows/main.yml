@@ -51,25 +51,3 @@ jobs:
       - name: Setup Gradle 8.2
         uses: gradle/actions/setup-gradle@v3
         with:
-          gradle-version: 8.2
-
-      - name: Inject AndroidX Config & Build APK
-        run: |
-          cd "${{ steps.find_gradle.outputs.dir }}"
-          
-          # Menambahkan properti AndroidX secara otomatis agar tidak error metadata
-          echo "" >> gradle.properties
-          echo "android.useAndroidX=true" >> gradle.properties
-          echo "android.enableJetifier=true" >> gradle.properties
-          
-          # Memberi izin eksekusi ke Gradle Wrapper jika ada
-          chmod +x ./gradlew 2>/dev/null || true
-          
-          # Mulai proses Build
-          gradle assembleDebug --stacktrace
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: C-Acoustic-Live-Pro-APK
-          path: ${{ steps.find_gradle.outputs.dir }}/app/build/outputs/apk/debug/app-debug.apk
