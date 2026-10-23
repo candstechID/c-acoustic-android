@@ -12,19 +12,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Find Gradle Project Location
+      - name: Auto Extract ZIP
+        run: |
+          echo "=== Before extract ==="
+          ls -la
+          if ls *.zip 1> /dev/null 2>&1; then
+            for z in *.zip; do
+              echo "Extracting $z..."
+              unzip -o "$z" || true
+            done
+          fi
+          echo "=== After extract ==="
+          ls -la
+          find . -name "settings.gradle" -type f
+
+      - name: Find Gradle Dir
         id: find_gradle
         run: |
-          echo "Listing root:"
-          ls -la
-          echo "Finding settings.gradle..."
-          GRADLE_DIR=$(find . -name "settings.gradle" -o -name "settings.gradle.kts" | head -1 | xargs dirname)
-          if [ -z "$GRADLE_DIR" ]; then
-            GRADLE_DIR="."
-          fi
-          echo "Gradle dir: $GRADLE_DIR"
+          GRADLE_FILE=$(find . -name "settings.gradle" | head -1)
+          GRADLE_DIR=$(dirname "$GRADLE_FILE")
+          echo "Found: $GRADLE_FILE"
+          echo "Dir: $GRADLE_DIR"
           echo "dir=$GRADLE_DIR" >> $GITHUB_OUTPUT
-          ls -la "$GRADLE_DIR"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -35,9 +44,9 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
-      - name: Build Debug APK
+      - name: Build APK
         run: |
-          cd ${{ steps.find_gradle.outputs.dir }}
+          cd "${{ steps.find_gradle.outputs.dir }}"
           gradle assembleDebug --stacktrace
 
       - name: Upload APK
