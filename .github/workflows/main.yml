@@ -39,7 +39,7 @@ jobs:
         run: |
           FILE=$(find . -name "settings.gradle" | head -1)
           DIR=$(dirname "$FILE")
-          echo "dir=$DIR" >> $GITHUB_OUTPUT
+          echo "dir=$DIR" >> "$GITHUB_OUTPUT"
           echo "Found dir $DIR"
 
       - name: Set up JDK 17
@@ -51,3 +51,48 @@ jobs:
       - name: Setup Gradle 8.2
         uses: gradle/actions/setup-gradle@v3
         with:
+          gradle-version: '8.2'
+
+      - name: Fix Repositories in settings.gradle
+        run: |
+          cd "${{ steps.find_gradle.outputs.dir }}"
+          # Menambahkan repositori google() agar plugin Android SDK bisa diunduh
+          cat <<EOF > settings_new.gradle
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          EOF
+          cat settings.gradle >> settings_new.gradle
+          mv settings_new.gradle settings.gradle
+
+      - name: Inject AndroidX Config & Build APK
+        run: |
+          cd "${{ steps.find_gradle.outputs.dir }}"
+          
+          # Menambahkan properti AndroidX secara otomatis
+          echo "" >> gradle.properties
+          echo "android.useAndroidX=true" >> gradle.properties
+          echo "android.enableJetifier=true" >> gradle.properties
+          
+          # Memberi izin eksekusi ke Gradle Wrapper jika ada
+          chmod +x ./gradlew 2>/dev/null || true
+          
+          # Mulai proses Build
+          gradle assembleDebug --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: C-Acoustic-Live-Pro-APK
+          path: ${{ steps.find_gradle.outputs.dir }}/app/build/outputs/apk/debug/app-debug.apk
