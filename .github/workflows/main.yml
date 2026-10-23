@@ -78,20 +78,23 @@ jobs:
       - name: Fix Java and Kotlin Target Mismatch
         run: |
           cd "${{ steps.find_gradle.outputs.dir }}"
-          # Memaksa Java dan Kotlin selaras menggunakan JVM 17 untuk mencegah error compile
-          cat <<EOF >> build.gradle
-          allprojects {
-              tasks.withType(JavaCompile).configureEach {
-                  sourceCompatibility = JavaVersion.VERSION_17
-                  targetCompatibility = JavaVersion.VERSION_17
+          # Mencari file build.gradle di dalam modul aplikasi (app/)
+          APP_BUILD=$(find . -name "build.gradle" | grep "app")
+          if [ -f "$APP_BUILD" ]; then
+            echo "Menyuntikkan konfigurasi Java 17 ke $APP_BUILD"
+            cat <<EOF >> "$APP_BUILD"
+          
+          android {
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
               }
-              tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
-                  kotlinOptions {
-                      jvmTarget = "17"
-                  }
+              kotlinOptions {
+                  jvmTarget = "17"
               }
           }
           EOF
+          fi
 
       - name: Inject AndroidX Config & Build APK
         run: |
@@ -110,3 +113,4 @@ jobs:
         with:
           name: C-Acoustic-Live-Pro-APK
           path: ${{ steps.find_gradle.outputs.dir }}/app/build/outputs/apk/debug/app-debug.apk
+          
