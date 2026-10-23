@@ -41,6 +41,10 @@ jobs:
       - name: Build APK
         run: |
           cd "${{ steps.find_gradle.outputs.dir }}"
+          # Menambahkan properti AndroidX yang diperlukan agar build berhasil
+          echo "android.useAndroidX=true" >> gradle.properties
+          echo "android.enableJetifier=true" >> gradle.properties
+          
           gradle assembleDebug --stacktrace
 
       - name: Upload APK
