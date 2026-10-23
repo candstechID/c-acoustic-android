@@ -14,26 +14,18 @@ jobs:
 
       - name: Auto Extract ZIP
         run: |
-          echo "=== Before extract ==="
-          ls -la
           if ls *.zip 1> /dev/null 2>&1; then
-            for z in *.zip; do
-              echo "Extracting $z..."
-              unzip -o "$z" || true
-            done
+            for z in *.zip; do unzip -o "$z" || true; done
           fi
-          echo "=== After extract ==="
           ls -la
-          find . -name "settings.gradle" -type f
 
       - name: Find Gradle Dir
         id: find_gradle
         run: |
-          GRADLE_FILE=$(find . -name "settings.gradle" | head -1)
-          GRADLE_DIR=$(dirname "$GRADLE_FILE")
-          echo "Found: $GRADLE_FILE"
-          echo "Dir: $GRADLE_DIR"
-          echo "dir=$GRADLE_DIR" >> $GITHUB_OUTPUT
+          FILE=$(find . -name "settings.gradle" | head -1)
+          DIR=$(dirname "$FILE")
+          echo "dir=$DIR" >> $GITHUB_OUTPUT
+          echo "Found dir $DIR"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -41,8 +33,10 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Gradle
+      - name: Setup Gradle 8.2 (FIX HasConvention)
         uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: 8.2
 
       - name: Build APK
         run: |
