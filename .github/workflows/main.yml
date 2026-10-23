@@ -12,6 +12,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Find Gradle Project Location
+        id: find_gradle
+        run: |
+          echo "Listing root:"
+          ls -la
+          echo "Finding settings.gradle..."
+          GRADLE_DIR=$(find . -name "settings.gradle" -o -name "settings.gradle.kts" | head -1 | xargs dirname)
+          if [ -z "$GRADLE_DIR" ]; then
+            GRADLE_DIR="."
+          fi
+          echo "Gradle dir: $GRADLE_DIR"
+          echo "dir=$GRADLE_DIR" >> $GITHUB_OUTPUT
+          ls -la "$GRADLE_DIR"
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -21,11 +35,13 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
-      - name: Build Debug APK with Gradle
-        run: gradle assembleDebug --stacktrace
+      - name: Build Debug APK
+        run: |
+          cd ${{ steps.find_gradle.outputs.dir }}
+          gradle assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: C-Acoustic-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ steps.find_gradle.outputs.dir }}/app/build/outputs/apk/debug/app-debug.apk
