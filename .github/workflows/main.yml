@@ -1,4 +1,4 @@
-name: Build C Acoustic APK
+name: Build C Acoustic APK from ZIP
 
 on:
   push:
@@ -14,10 +14,25 @@ jobs:
 
       - name: Auto Extract ZIP
         run: |
+          echo "Mencari file ZIP..."
           if ls *.zip 1> /dev/null 2>&1; then
-            for z in *.zip; do unzip -o "$z" || true; done
+            for z in *.zip; do 
+              echo "Mengekstrak $z..."
+              unzip -o "$z" || true
+            done
+          else
+            echo "Tidak ada file ZIP yang ditemukan!"
+            exit 1
           fi
-          ls -la
+
+      - name: Clean Up Duplicate Files (Anti-Error)
+        run: |
+          echo "Membersihkan file duplikat sisa ekstrak ganda (_1, _1_1, _2)..."
+          find . -type f -name "*_1.*" -delete
+          find . -type f -name "*_1_1.*" -delete
+          find . -type f -name "*_2.*" -delete
+          find . -type f -name "*_1" -delete
+          find . -type f -name "*_2" -delete
 
       - name: Find Gradle Dir
         id: find_gradle
@@ -33,22 +48,28 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Gradle 8.2 (FIX HasConvention)
+      - name: Setup Gradle 8.2
         uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: 8.2
 
-      - name: Build APK
+      - name: Inject AndroidX Config & Build APK
         run: |
           cd "${{ steps.find_gradle.outputs.dir }}"
-          # Menambahkan properti AndroidX yang diperlukan agar build berhasil
+          
+          # Menambahkan properti AndroidX secara otomatis agar tidak error metadata
+          echo "" >> gradle.properties
           echo "android.useAndroidX=true" >> gradle.properties
           echo "android.enableJetifier=true" >> gradle.properties
           
+          # Memberi izin eksekusi ke Gradle Wrapper jika ada
+          chmod +x ./gradlew 2>/dev/null || true
+          
+          # Mulai proses Build
           gradle assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: C-Acoustic-APK
+          name: C-Acoustic-Live-Pro-APK
           path: ${{ steps.find_gradle.outputs.dir }}/app/build/outputs/apk/debug/app-debug.apk
