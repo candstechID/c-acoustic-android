@@ -1,0 +1,63 @@
+name: Extract uploaded source ZIP
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Find uploaded source archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f c-acoustic-android-source.zip || {
+            echo "Tidak ditemukan c-acoustic-android-source.zip di root repository."
+            exit 1
+          }
+
+      - name: Validate and extract archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, posixpath, zipfile
+          archive = "c-acoustic-android-source.zip"
+          root = os.path.abspath(".")
+          protected = {".github/workflows/extract-uploaded-zip.yml"}
+          with zipfile.ZipFile(archive) as z:
+              for info in z.infolist():
+                  name = info.filename
+                  normalized = posixpath.normpath(name.replace("\\", "/"))
+                  if normalized.startswith("/") or normalized == ".." or normalized.startswith("../"):
+                      raise SystemExit(f"Unsafe archive path: {name}")
+                  target = os.path.abspath(os.path.join(root, normalized))
+                  if not (target == root or target.startswith(root + os.sep)):
+                      raise SystemExit(f"Unsafe archive path: {name}")
+                  if normalized == ".git" or normalized.startswith(".git/"):
+                      raise SystemExit(f"Protected path in archive: {name}")
+                  if normalized in protected:
+                      raise SystemExit(f"Archive may not overwrite workflow: {name}")
+              z.extractall(root)
+          PY
+          rm -f c-acoustic-android-source.zip
+
+      - name: Commit extracted project
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Tidak ada perubahan untuk di-commit."
+            exit 0
+          fi
+          git commit -m "Extract C ACOUSTIC Android source archive"
+          git push
