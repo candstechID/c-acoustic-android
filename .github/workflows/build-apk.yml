@@ -31,20 +31,27 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install Android SDK packages
-        run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.0.12077973"
-
-      - name: Make Gradle wrapper executable
+        shell: bash
         run: |
-          if [ -f ./gradlew ]; then chmod +x ./gradlew; fi
+          set -euo pipefail
+          sdkmanager --licenses
+          sdkmanager             "platform-tools"             "platforms;android-35"             "build-tools;35.0.0"             "cmake;3.22.1"             "ndk;27.0.12077973"
+
+      - name: Verify Gradle Wrapper
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f ./gradlew ]; then
+            echo "::error::File gradlew tidak ditemukan di root repository."
+            echo "Pastikan Gradle Wrapper (gradlew, gradlew.bat, dan gradle/wrapper/) sudah ada."
+            exit 1
+          fi
+          chmod +x ./gradlew
 
       - name: Build debug APK
         shell: bash
         run: |
           set -euo pipefail
-          if [ ! -f ./gradlew ]; then
-            echo "::error::gradlew tidak ditemukan. Repositori harus menyertakan Gradle Wrapper (gradlew dan gradle/wrapper)."
-            exit 1
-          fi
           ./gradlew --no-daemon assembleDebug
 
       - name: Upload APK artifact
@@ -54,3 +61,4 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 14
+          
