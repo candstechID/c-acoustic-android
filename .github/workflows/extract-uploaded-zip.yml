@@ -1,63 +1,30 @@
-name: Extract uploaded source ZIP
+- name: Extract ZIP without overwriting workflow
+  shell: bash
+  run: |
+    set -euo pipefail
 
-on:
-  workflow_dispatch:
+    ZIP_FILE="c-acoustic-android-source.zip"
+    TEMP_DIR="$(mktemp -d)"
+    trap 'rm -rf "$TEMP_DIR"' EXIT
 
-permissions:
-  contents: write
+    test -f "$ZIP_FILE" || {
+      echo "ZIP tidak ditemukan: $ZIP_FILE"
+      exit 1
+    }
 
-jobs:
-  extract:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    unzip -q "$ZIP_FILE" -d "$TEMP_DIR"
 
-      - name: Find uploaded source archive
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -f c-acoustic-android-source.zip || {
-            echo "Tidak ditemukan c-acoustic-android-source.zip di root repository."
-            exit 1
-          }
+    rsync -a \
+      --exclude='.git/' \
+      --exclude='.github/workflows/extract-uploaded-zip.yml' \
+      "$TEMP_DIR/" ./
 
-      - name: Validate and extract archive
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import os, posixpath, zipfile
-          archive = "c-acoustic-android-source.zip"
-          root = os.path.abspath(".")
-          protected = {".github/workflows/extract-uploaded-zip.yml"}
-          with zipfile.ZipFile(archive) as z:
-              for info in z.infolist():
-                  name = info.filename
-                  normalized = posixpath.normpath(name.replace("\\", "/"))
-                  if normalized.startswith("/") or normalized == ".." or normalized.startswith("../"):
-                      raise SystemExit(f"Unsafe archive path: {name}")
-                  target = os.path.abspath(os.path.join(root, normalized))
-                  if not (target == root or target.startswith(root + os.sep)):
-                      raise SystemExit(f"Unsafe archive path: {name}")
-                  if normalized == ".git" or normalized.startswith(".git/"):
-                      raise SystemExit(f"Protected path in archive: {name}")
-                  if normalized in protected:
-                      raise SystemExit(f"Archive may not overwrite workflow: {name}")
-              z.extractall(root)
-          PY
-          rm -f c-acoustic-android-source.zip
-
-      - name: Commit extracted project
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          if git diff --cached --quiet; then
-            echo "Tidak ada perubahan untuk di-commit."
-            exit 0
-          fi
-          git commit -m "Extract C ACOUSTIC Android source archive"
-          git push
+    git add -A
+    if git diff --cached --quiet; then
+      echo "Tidak ada perubahan untuk di-commit."
+    else
+      git config user.name "github-actions[bot]"
+      git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      git commit -m "Import C Acoustic Android source"
+      git push
+    fi
